@@ -59,3 +59,11 @@ numerical_features = [
 ]
 
 categorical_features, numerical_features
+
+
+#Build the sklearn Preprocessing Pipeline
+
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer

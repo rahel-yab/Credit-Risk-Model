@@ -115,13 +115,10 @@ Feature engineering is implemented in src/data_processing.py using reproducible 
 Key transformations include:
     Aggregated customer-level metrics (total amount, average amount, transaction count, variability)
 
--- Temporal features extracted from transaction timestamps
-
--- Categorical encoding using One-Hot Encoding
-
--- Numerical scaling
-
--- Weight of Evidence (WoE) transformations for selected features
+- Temporal features extracted from transaction timestamps
+- Categorical encoding using One-Hot Encoding
+- Numerical scaling
+- Weight of Evidence (WoE) transformations for selected features
 
 All transformations are chained using sklearn.pipeline.Pipeline.
 
@@ -150,24 +147,17 @@ This proxy target is merged back into the modeling dataset.
 Model training is handled in src/train.py.
 
 Key steps:
-
--- Train/test split with fixed random state
-
--- Multiple models trained and evaluated
-
--- Hyperparameter tuning using Grid Search or Random Search
+- Train/test split with fixed random state
+- Multiple models trained and evaluated
+- Hyperparameter tuning using Grid Search or Random Search
 
 Evaluation metrics:
 
--- Accuracy
-
--- Precision
-
--- Recall
-
--- F1-score
-
--- ROC-AUC
+- Accuracy
+- Precision
+- Recall
+- F1-score
+- ROC-AUC
 
 ---
 
@@ -176,11 +166,7 @@ Evaluation metrics:
 Unit tests are implemented using pytest and located in tests/.
 
 Tests validate:
-
--- Feature engineering outputs
-
--- Pipeline consistency
-
--- Presence of expected columns
-
--- Tests are executed automatically as part of the CI pipeline.
+- Feature engineering outputs
+- Pipeline consistency
+- Presence of expected columns
+- Tests are executed automatically as part of the CI pipeline.

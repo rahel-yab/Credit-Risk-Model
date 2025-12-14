@@ -1,172 +1,233 @@
-# Credit Risk Probability Model Using Alternative Data
+# Credit Risk Modeling Using Transactional Data
 
 ## Project Overview
-Bati Bank is partnering with an eCommerce platform to offer a Buy-Now-Pay-Later (BNPL) service.  
-The core challenge is to assess credit risk for customers who lack traditional credit histories.
 
-This project builds an end-to-end credit risk modeling pipeline using **alternative behavioral data** derived from transaction logs. By transforming transaction patterns into structured risk signals, the system produces:
-- A probability of default proxy
-- A credit score derived from that probability
-- Model outputs that can support loan approval decisions, limits, and durations
+This project implements an end-to-end credit risk and fraud modeling pipeline using transactional data. The objective is to transform raw transaction records into a reliable, reproducible machine learning system that can estimate risk probabilities and support credit decision-making.
 
-The solution is designed with **reproducibility, interpretability, and deployment-readiness** in mind.
+The work emphasizes strong data understanding, transparent preprocessing, interpretable baseline modeling, and production-oriented structure. The project is designed to evolve toward a deployable credit risk scoring service.
 
 ---
 
-## Credit Scoring Business Understanding
+## Business Context
 
-### Basel II and Model Interpretability
-The Basel II Capital Accord emphasizes risk-sensitive capital allocation and requires financial institutions to demonstrate transparency, documentation, and explainability in their risk models.  
+In a financial services environment, especially credit and fraud risk, model decisions must be explainable, auditable, and robust to data quality issues. This project focuses on:
 
-As a result, our credit scoring model must:
-- Be interpretable and auditable
-- Use well-defined assumptions and proxy definitions
-- Allow regulators and risk officers to understand how inputs affect outputs
-
-This influences both model choice and feature engineering decisions, favoring approaches that balance predictive power with clarity.
+- Translating transactional behavior into predictive signals
+- Handling mixed data types (numerical, categorical, identifiers)
+- Building reproducible pipelines suitable for regulated contexts
+- Laying groundwork for deployment and monitoring
 
 ---
 
-### Why a Proxy Target Variable Is Necessary
-The dataset does not contain a direct label indicating whether a customer defaulted on credit. Without this, supervised learning is not directly possible.
+## Repository Structure
 
-To address this, we define a **proxy target variable** based on customer engagement behavior using Recency, Frequency, and Monetary (RFM) analysis. Customers who exhibit low engagement are treated as higher-risk proxies.
 
-**Business risks of using a proxy include:**
-- Misclassification of customers who are inactive but creditworthy
-- Bias introduced by behavioral patterns unrelated to repayment ability
-- Proxy drift as customer behavior changes over time
-
-These risks are mitigated by:
-- Clear documentation of assumptions
-- Conservative model usage
-- Continuous monitoring and retraining
-
----
-
-### Model Complexity vs Interpretability Trade-offs
-In regulated financial environments, there is a trade-off between model transparency and predictive performance.
-
-| Approach | Advantages | Limitations |
-|--------|-----------|-------------|
-| Logistic Regression with WoE | Highly interpretable, regulator-friendly, stable | Lower ceiling on performance |
-| Tree-based Models (GBM, RF) | Capture non-linear relationships, higher accuracy | Harder to explain, risk of overfitting |
-
-This project evaluates multiple models and selects a final model based on **performance, stability, and governance suitability**, not accuracy alone.
-
----
-
-## Data Description
-The dataset comes from the Xente eCommerce platform and includes transaction-level records with:
-- Customer identifiers
-- Transaction timestamps
-- Monetary values
-- Product and channel metadata
-- Fraud indicators
-
-Raw data is stored in `data/raw/` and processed datasets are stored in `data/processed/`.
-
----
 
 ## Project Structure
 
 ```text
 credit-risk-model/
+│
 ├── data/
-│   ├── raw/
-│   └── processed/
+│ ├── raw/ # Original, immutable dataset
+│ └── processed/ # Cleaned and model-ready datasets
+│
 ├── notebooks/
-│   └── eda.ipynb
+│ └── eda.ipynb # Exploratory Data Analysis
+│
 ├── src/
-│   ├── data_processing.py
-│   ├── train.py
-│   ├── predict.py
-│   └── api/
-│       ├── main.py
-│       └── pydantic_models.py
+│ ├── init.py
+│ ├── data_processing.py # Feature engineering & preprocessing
+│ └── train.py # Model training pipeline
+│
 ├── tests/
-│   └── test_data_processing.py
-├── .github/workflows/ci.yml
-├── Dockerfile
-├── docker-compose.yml
+│ └── test_data_processing.py # Unit tests
+│
+├── models/
+│ └── logistic_regression.pkl # Saved trained model
+│
 ├── requirements.txt
-└── README.md
+├── README.md
+└── venv/
+
 ```
+---
+
+
+---
+
+## Dataset Description
+
+The dataset consists of transaction-level records with the following categories:
+
+- **Identifiers**  
+  TransactionId, BatchId, AccountId, SubscriptionId, CustomerId
+
+- **Monetary Features**  
+  Amount, Value
+
+- **Categorical Features**  
+  CurrencyCode, CountryCode, ProviderId, ProductId, ProductCategory, ChannelId
+
+- **Temporal Feature**  
+  TransactionStartTime
+
+- **Target Variable**  
+  FraudResult (binary indicator)
+
+Raw data is stored under `data/raw/`. All datasets used for modeling are derived programmatically and saved under `data/processed/`.
+
+---
+
+## Data Quality and Missing-Value Handling
+
+Data quality checks were performed during EDA and preprocessing.
+
+### Missing Values
+- Core monetary features showed minimal missingness.
+- Rows with missing target values were excluded from modeling.
+- Categorical variables are handled using encoders that safely ignore unseen or missing categories at inference time.
+
+### Outliers
+- Transaction amounts and values exhibit heavy skew.
+- Extreme values were retained, as they may carry meaningful fraud or risk signals rather than noise.
+
+All handling decisions are implemented in code to ensure full reproducibility.
+
 ---
 
 ## Exploratory Data Analysis (EDA)
 
-EDA is performed in notebooks/eda.ipynb and focuses on:
+EDA is conducted in `notebooks/eda.ipynb` and focuses on:
 
-Data structure and types
+- Dataset structure and data types
+- Distributions of numerical and categorical variables
+- Identification of missing values and potential outliers
+- Correlations between monetary behavior and fraud outcomes
 
-Distribution of numerical and categorical variables
+### Key Insights from EDA
+- Fraud cases are rare, indicating strong class imbalance.
+- Certain product categories and channels show higher fraud prevalence.
+- Monetary features are highly skewed, motivating feature scaling.
+- Identifier columns provide no predictive signal and must be excluded.
 
-Missing values and outliers
-
-Correlations between monetary and behavioral features
-
----
-
-## Feature Engineering
-
-Feature engineering is implemented in src/data_processing.py using reproducible pipelines.
-
-Key transformations include:
-    Aggregated customer-level metrics (total amount, average amount, transaction count, variability)
-
-- Temporal features extracted from transaction timestamps
-- Categorical encoding using One-Hot Encoding
-- Numerical scaling
-- Weight of Evidence (WoE) transformations for selected features
-
-All transformations are chained using sklearn.pipeline.Pipeline.
+These insights directly informed feature selection, preprocessing, and model design.
 
 ---
 
-## Proxy Target Variable Construction
+## Feature Engineering and Preprocessing
 
-Since no default label exists, a proxy is created using RFM analysis:
+Feature engineering is implemented using scikit-learn Pipelines and ColumnTransformers to ensure consistency between training and inference.
 
-Compute Recency, Frequency, and Monetary metrics per customer
+Key steps include:
+- Dropping identifier columns
+- Separating numerical and categorical features
+- Standardizing numerical features
+- One-hot encoding categorical variables
+- Integrating preprocessing directly into the model pipeline
 
-Scale RFM features
+This approach prevents data leakage and ensures production safety.
 
-Apply K-Means clustering (k=3)
+---
 
-Identify the least engaged cluster
+## Modeling Approach
 
-Assign is_high_risk = 1 to that cluster, 0 otherwise
+A baseline Logistic Regression model is used as the first benchmark due to its interpretability and suitability for regulated environments.
 
-This proxy target is merged back into the modeling dataset.
+Model characteristics:
+- Pipeline-based preprocessing + modeling
+- Stratified train-test split
+- Class-weighted learning to address imbalance
+- Evaluation using accuracy, precision, recall, and ROC-AUC
+- Serialized model artifact saved for reuse
 
- ---
-
-## Model Training and Experiment Tracking
-
-Model training is handled in src/train.py.
-
-Key steps:
-- Train/test split with fixed random state
-- Multiple models trained and evaluated
-- Hyperparameter tuning using Grid Search or Random Search
-
-Evaluation metrics:
-
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- ROC-AUC
+This baseline establishes a clear performance reference for future model improvements.
 
 ---
 
 ## Testing
 
-Unit tests are implemented using pytest and located in tests/.
+Unit tests are implemented using `pytest` to validate core data processing logic.
 
-Tests validate:
-- Feature engineering outputs
-- Pipeline consistency
-- Presence of expected columns
-- Tests are executed automatically as part of the CI pipeline.
+Tests ensure:
+- Feature engineering functions return expected outputs
+- Preprocessing pipelines are constructed correctly
+
+Testing improves maintainability and guards against silent failures.
+
+---
+
+## Deployment and Operationalization (Current Status)
+
+Currently implemented:
+- Script-based model training (`python -m src.train`)
+- Serialized model artifacts stored under `models/`
+- Reproducible preprocessing embedded in the pipeline
+
+Planned extensions:
+- Inference script (`predict.py`)
+- Containerization (Docker)
+- CI/CD integration
+- Monitoring and retraining hooks
+
+These components will be added in later stages.
+
+---
+
+## How to Get Started
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-username/credit-risk-model.git
+cd credit-risk-model
+```
+
+### 2. Create and Activate a Virtual Environment
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Add the Dataset
+Place the raw dataset file into:
+```bash
+data/raw/
+```
+### 5. Run Exploratory Data Analysis
+```bash
+jupyter notebook notebooks/eda.ipynb
+```
+
+### 6. Train the Model
+```bash
+python -m src.train
+```
+
+### 7. Run Tests
+```bash
+pytest tests/
+```
+
+
+# Contribution Guidelines
+
+Contributions are welcome and encouraged.
+
+To contribute:
+
+Fork the repository
+
+Create a feature branch
+
+Follow existing coding and documentation standards
+
+Add or update unit tests where appropriate
+
+Submit a pull request with a clear description of changes
+
+All contributions should prioritize reproducibility, clarity, and correctness.

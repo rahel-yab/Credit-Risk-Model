@@ -1,24 +1,150 @@
-# Credit Risk Modeling Using Transactional Data
+# Credit Risk Modeling Project
 
 ## Project Overview
 
-This project implements an end-to-end credit risk and fraud modeling pipeline using transactional data. The objective is to transform raw transaction records into a reliable, reproducible machine learning system that can estimate risk probabilities and support credit decision-making.
+This project focuses on building a **credit risk modeling pipeline** using transactional data in a context where **no explicit default labels are available**. The primary objective is to estimate customer credit risk by engineering a **proxy target variable** derived from customer behavior, enabling supervised learning in alignment with real-world credit scoring constraints.
 
-The work emphasizes strong data understanding, transparent preprocessing, interpretable baseline modeling, and production-oriented structure. The project is designed to evolve toward a deployable credit risk scoring service.
-
----
-
-## Business Context
-
-In a financial services environment, especially credit and fraud risk, model decisions must be explainable, auditable, and robust to data quality issues. This project focuses on:
-
-- Translating transactional behavior into predictive signals
-- Handling mixed data types (numerical, categorical, identifiers)
-- Building reproducible pipelines suitable for regulated contexts
-- Laying groundwork for deployment and monitoring
+The project follows industry-aligned best practices, including exploratory data analysis (EDA), feature engineering, proxy target construction, model training, testing, and preparation for deployment.
 
 ---
 
+## Business Understanding 
+
+### Credit Risk and Credit Scoring Context
+
+Credit risk refers to the likelihood that a customer will fail to meet their financial obligations. Financial institutions rely on **credit scoring models** to quantify this risk and support decisions such as loan approval, pricing, and credit limits.
+
+In traditional credit risk problems, a binary **default label** is available. However, in this challenge, no such label exists. This mirrors real-world scenarios where historical default data may be incomplete or unavailable, requiring alternative strategies to approximate risk.
+
+---
+
+### Basel II Regulatory Context
+
+Under the **Basel II Capital Accord**, financial institutions are required to:
+
+- Quantify credit risk using internal or standardized models  
+- Hold sufficient capital proportional to risk exposure  
+- Ensure models are interpretable, auditable, and data-driven  
+
+A key implication of Basel II is that **risk estimation must be justifiable and explainable**, even when direct default labels are absent. This project addresses that requirement by constructing a behavior-based proxy target grounded in established credit risk theory.
+
+---
+
+### Why a Proxy Target Variable Is Required
+
+The dataset does **not contain a direct default or credit outcome variable**. Using unrelated labels (e.g., fraud indicators) would violate the business objective and produce misleading models.
+
+To address this, a **proxy target variable** is engineered based on the assumption that **customer transactional behavior reflects underlying creditworthiness**. This approach is widely used in early-stage credit modeling and exploratory risk assessment.
+
+---
+
+### Proxy Target Construction Strategy
+
+The proxy target is constructed using **RFM analysis and clustering**:
+
+- **Recency**: Time since the customer’s most recent transaction  
+- **Frequency**: Number of transactions over a defined period  
+- **Monetary**: Total or average transaction value  
+
+Customers are aggregated at the customer level and clustered using **K-Means**. Clusters exhibiting low engagement, long inactivity, or extreme/irregular behavior are labeled as **higher risk**, while consistent and active customers are labeled as **lower risk**.
+
+This cluster-derived label becomes the supervised learning target.
+
+---
+
+## Dataset Description
+
+The dataset consists of transactional records with the following feature groups:
+
+- Identifiers: TransactionId, CustomerId, AccountId, SubscriptionId  
+- Transaction values: Amount, Value  
+- Product information: ProductId, ProductCategory, ProviderId  
+- Channel information: ChannelId  
+- Temporal features: TransactionStartTime  
+
+The raw data is transformed into customer-level features for modeling.
+
+---
+
+## Exploratory Data Analysis (EDA)
+
+EDA is conducted in `notebooks/eda.ipynb` and focuses on understanding data quality, behavior patterns, and modeling feasibility.
+
+### EDA Scope
+
+- Dataset structure and data types  
+- Summary statistics for numerical variables  
+- Distribution of categorical features  
+- Missing-value analysis  
+- Outlier detection  
+- Behavioral insights relevant to credit risk  
+
+---
+
+### Missing Value Analysis
+
+Missing values were explicitly analyzed across all features:
+
+- Core transactional and customer identifier fields are complete  
+- No critical missing values prevent customer-level aggregation  
+- Identifier columns are retained only for grouping and dropped before modeling  
+- No imputation is required for monetary or temporal features  
+
+This confirms that the dataset is suitable for behavioral aggregation without introducing bias from missing data handling.
+
+---
+
+### Key EDA Insights
+
+- Transaction amounts are highly skewed, supporting aggregation over raw usage  
+- Individual transactions are weak risk indicators; **customer-level behavior is essential**  
+- Product category and channel usage patterns differ significantly across customers  
+- RFM features provide meaningful separation of behavioral risk groups  
+
+EDA insights directly inform feature engineering and proxy target construction.
+
+---
+
+## Feature Engineering
+
+Feature engineering focuses on transforming transaction-level data into meaningful customer-level predictors.
+
+### Planned Feature Types
+
+- Aggregated features: transaction count, total amount, average value  
+- Temporal features: recency, transaction velocity, activity trends  
+- Behavioral diversity: number of unique channels and product categories  
+
+---
+
+### WoE and IV (Planned)
+
+Weight of Evidence (WoE) encoding will be applied to categorical features to improve interpretability and model stability. Information Value (IV) will guide feature selection and risk signal strength assessment.
+
+---
+
+## Modeling Approach
+
+Initial models prioritize interpretability and regulatory alignment:
+
+- Logistic Regression (baseline credit scoring model)  
+- Class imbalance handling through weighting  
+- Evaluation metrics: ROC-AUC, precision, recall, KS statistic  
+
+---
+
+## Experiment Tracking and Reproducibility
+
+MLflow is planned for:
+
+- Experiment tracking  
+- Hyperparameter logging  
+- Metric comparison  
+- Model artifact management  
+
+This ensures transparency and reproducibility consistent with production credit risk systems.
+
+---
 
 ## Project Structure
 
@@ -26,205 +152,21 @@ In a financial services environment, especially credit and fraud risk, model dec
 credit-risk-model/
 │
 ├── data/
-│ ├── raw/ # Original, immutable dataset
-│ └── processed/ # Cleaned and model-ready datasets
+│   ├── raw/
+│   └── processed/
 │
 ├── notebooks/
-│ └── eda.ipynb # Exploratory Data Analysis
+│   └── eda.ipynb
 │
 ├── src/
-│ ├── init.py
-│ ├── data_processing.py # Feature engineering & preprocessing
-│ └── train.py # Model training pipeline
+│   ├── data_processing.py
+│   ├── features.py
+│   ├── train.py
+│   └── utils.py
 │
 ├── tests/
-│ └── test_data_processing.py # Unit tests
-│
-├── models/
-│ └── logistic_regression.pkl # Saved trained model
+│   └── test_data_processing.py
 │
 ├── requirements.txt
 ├── README.md
 └── venv/
-
-```
----
-
-
----
-
-## Dataset Description
-
-The dataset consists of transaction-level records with the following categories:
-
-- **Identifiers**  
-  TransactionId, BatchId, AccountId, SubscriptionId, CustomerId
-
-- **Monetary Features**  
-  Amount, Value
-
-- **Categorical Features**  
-  CurrencyCode, CountryCode, ProviderId, ProductId, ProductCategory, ChannelId
-
-- **Temporal Feature**  
-  TransactionStartTime
-
-- **Target Variable**  
-  FraudResult (binary indicator)
-
-Raw data is stored under `data/raw/`. All datasets used for modeling are derived programmatically and saved under `data/processed/`.
-
----
-
-## Data Quality and Missing-Value Handling
-
-Data quality checks were performed during EDA and preprocessing.
-
-### Missing Values
-- Core monetary features showed minimal missingness.
-- Rows with missing target values were excluded from modeling.
-- Categorical variables are handled using encoders that safely ignore unseen or missing categories at inference time.
-
-### Outliers
-- Transaction amounts and values exhibit heavy skew.
-- Extreme values were retained, as they may carry meaningful fraud or risk signals rather than noise.
-
-All handling decisions are implemented in code to ensure full reproducibility.
-
----
-
-## Exploratory Data Analysis (EDA)
-
-EDA is conducted in `notebooks/eda.ipynb` and focuses on:
-
-- Dataset structure and data types
-- Distributions of numerical and categorical variables
-- Identification of missing values and potential outliers
-- Correlations between monetary behavior and fraud outcomes
-
-### Key Insights from EDA
-- Fraud cases are rare, indicating strong class imbalance.
-- Certain product categories and channels show higher fraud prevalence.
-- Monetary features are highly skewed, motivating feature scaling.
-- Identifier columns provide no predictive signal and must be excluded.
-
-These insights directly informed feature selection, preprocessing, and model design.
-
----
-
-## Feature Engineering and Preprocessing
-
-Feature engineering is implemented using scikit-learn Pipelines and ColumnTransformers to ensure consistency between training and inference.
-
-Key steps include:
-- Dropping identifier columns
-- Separating numerical and categorical features
-- Standardizing numerical features
-- One-hot encoding categorical variables
-- Integrating preprocessing directly into the model pipeline
-
-This approach prevents data leakage and ensures production safety.
-
----
-
-## Modeling Approach
-
-A baseline Logistic Regression model is used as the first benchmark due to its interpretability and suitability for regulated environments.
-
-Model characteristics:
-- Pipeline-based preprocessing + modeling
-- Stratified train-test split
-- Class-weighted learning to address imbalance
-- Evaluation using accuracy, precision, recall, and ROC-AUC
-- Serialized model artifact saved for reuse
-
-This baseline establishes a clear performance reference for future model improvements.
-
----
-
-## Testing
-
-Unit tests are implemented using `pytest` to validate core data processing logic.
-
-Tests ensure:
-- Feature engineering functions return expected outputs
-- Preprocessing pipelines are constructed correctly
-
-Testing improves maintainability and guards against silent failures.
-
----
-
-## Deployment and Operationalization (Current Status)
-
-Currently implemented:
-- Script-based model training (`python -m src.train`)
-- Serialized model artifacts stored under `models/`
-- Reproducible preprocessing embedded in the pipeline
-
-Planned extensions:
-- Inference script (`predict.py`)
-- Containerization (Docker)
-- CI/CD integration
-- Monitoring and retraining hooks
-
-These components will be added in later stages.
-
----
-
-## How to Get Started
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/your-username/credit-risk-model.git
-cd credit-risk-model
-```
-
-### 2. Create and Activate a Virtual Environment
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Add the Dataset
-Place the raw dataset file into:
-```bash
-data/raw/
-```
-### 5. Run Exploratory Data Analysis
-```bash
-jupyter notebook notebooks/eda.ipynb
-```
-
-### 6. Train the Model
-```bash
-python -m src.train
-```
-
-### 7. Run Tests
-```bash
-pytest tests/
-```
-
-
-# Contribution Guidelines
-
-Contributions are welcome and encouraged.
-
-To contribute:
-
-Fork the repository
-
-Create a feature branch
-
-Follow existing coding and documentation standards
-
-Add or update unit tests where appropriate
-
-Submit a pull request with a clear description of changes
-
-All contributions should prioritize reproducibility, clarity, and correctness.

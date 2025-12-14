@@ -19,9 +19,6 @@ In a financial services environment, especially credit and fraud risk, model dec
 
 ---
 
-## Repository Structure
-
-
 
 ## Project Structure
 

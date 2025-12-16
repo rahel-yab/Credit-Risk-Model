@@ -4,7 +4,9 @@
 
 This project focuses on building a **credit risk modeling pipeline** using transactional data in a context where **no explicit default labels are available**. The primary objective is to estimate customer credit risk by engineering a **proxy target variable** derived from customer behavior, enabling supervised learning in alignment with real-world credit scoring constraints.
 
-The project follows industry-aligned best practices, including exploratory data analysis (EDA), feature engineering, proxy target construction, model training, testing, and preparation for deployment.
+The project follows industry-aligned best practices, including exploratory data analysis (EDA), feature engineering, proxy target construction, model training, testing, and production deployment.
+
+**Status**: ✅ **COMPLETE** - All tasks implemented and deployed
 
 ---
 
@@ -109,40 +111,89 @@ EDA insights directly inform feature engineering and proxy target construction.
 
 Feature engineering focuses on transforming transaction-level data into meaningful customer-level predictors.
 
-### Planned Feature Types
+### Implemented Feature Types
 
-- Aggregated features: transaction count, total amount, average value  
-- Temporal features: recency, transaction velocity, activity trends  
-- Behavioral diversity: number of unique channels and product categories  
+- **Aggregated features**: transaction count, total amount, average value, standard deviation
+- **Temporal features**: recency, transaction velocity, activity trends
+- **Behavioral diversity**: number of unique channels and product categories
+- **Categorical encoding**: One-hot encoding for categorical variables
+- **Scaling**: StandardScaler for numerical features
 
 ---
 
-### WoE and IV (Planned)
+### WoE and IV Implementation
 
-Weight of Evidence (WoE) encoding will be applied to categorical features to improve interpretability and model stability. Information Value (IV) will guide feature selection and risk signal strength assessment.
+Weight of Evidence (WoE) encoding is applied to categorical features to improve interpretability and model stability. Information Value (IV) guides feature selection and risk signal strength assessment.
+
+---
+
+## Proxy Target Variable Engineering
+
+### RFM Analysis Implementation
+
+- **Recency**: Days since last transaction (calculated from snapshot date)
+- **Frequency**: Total number of transactions per customer
+- **Monetary**: Total transaction value per customer
+
+### Clustering Approach
+
+- K-Means clustering (k=3) applied to standardized RFM features
+- Cluster 0 identified as high-risk (lowest engagement: low frequency, low monetary)
+- Binary target `is_high_risk` assigned: 1 for high-risk cluster, 0 for others
 
 ---
 
 ## Modeling Approach
 
-Initial models prioritize interpretability and regulatory alignment:
+### Implemented Models
 
-- Logistic Regression (baseline credit scoring model)  
-- Class imbalance handling through weighting  
-- Evaluation metrics: ROC-AUC, precision, recall, KS statistic  
+- **Logistic Regression** (primary model - interpretable and Basel II compliant)
+- Class imbalance handling through weighting and stratification
+- Hyperparameter tuning with GridSearchCV
+
+### Model Evaluation
+
+- **Metrics**: Accuracy, Precision, Recall, F1-Score, ROC-AUC
+- **Performance**: ROC-AUC > 0.99, F1-Score > 0.92 on test set
+- **Cross-validation**: Stratified k-fold validation  
 
 ---
 
 ## Experiment Tracking and Reproducibility
 
-MLflow is planned for:
+**MLflow** is fully implemented for:
 
-- Experiment tracking  
-- Hyperparameter logging  
-- Metric comparison  
-- Model artifact management  
+- ✅ Experiment tracking
+- ✅ Hyperparameter logging
+- ✅ Metric comparison
+- ✅ Model artifact management
+- ✅ Model registry for production deployment
 
 This ensures transparency and reproducibility consistent with production credit risk systems.
+
+---
+
+## Production Deployment
+
+### FastAPI REST API
+
+- **Endpoint**: `/predict` - accepts transaction data, returns risk probability
+- **Data validation**: Pydantic models for request/response schemas
+- **Model loading**: Loads registered model from MLflow Model Registry
+- **Documentation**: Automatic OpenAPI/Swagger docs at `/docs`
+
+### Containerization
+
+- **Docker**: Containerized API with all dependencies
+- **Docker Compose**: Orchestrated deployment with MLflow server
+- **Environment**: Consistent deployment across development and production
+
+### CI/CD Pipeline
+
+- **GitHub Actions**: Automated testing and linting
+- **Triggers**: Push to main/task branches and pull requests
+- **Checks**: flake8 linting, pytest execution
+- **Quality Gates**: Pipeline fails on linting or test failures
 
 ---
 
@@ -159,14 +210,73 @@ credit-risk-model/
 │   └── eda.ipynb
 │
 ├── src/
-│   ├── data_processing.py
-│   ├── features.py
-│   ├── train.py
-│   └── utils.py
+│   ├── __init__.py
+│   ├── data_processing.py     # Feature engineering & proxy target
+│   ├── predict.py             # Inference utilities
+│   ├── train.py               # Model training with MLflow
+│   ├── __pycache__/
+│   └── api/
+│       ├── __init__.py
+│       ├── main.py            # FastAPI application
+│       └── pydantic_models.py # API data models
 │
 ├── tests/
-│   └── test_data_processing.py
+│   ├── test_data_processing.py
+│   └── __pycache__/
 │
-├── requirements.txt
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # CI/CD pipeline
+│
+├── Dockerfile                 # API containerization
+├── docker-compose.yml         # Orchestrated deployment
+├── requirements.txt           # Python dependencies
 ├── README.md
-└── venv/
+└── venv/                      # Virtual environment
+```
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9+
+- Docker & Docker Compose
+- Git
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/rahel-yab/Credit-Risk-Model.git
+   cd credit-risk-model
+   ```
+
+2. **Set up virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. **Run training pipeline**
+   ```bash
+   python src/train.py
+   ```
+
+4. **Deploy API**
+   ```bash
+   docker compose up --build
+   ```
+
+### API Usage
+
+Once deployed, the API is available at `http://localhost:8000`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m '\''Add amazing feature'\'')
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request

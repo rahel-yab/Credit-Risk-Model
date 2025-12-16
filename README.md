@@ -6,8 +6,6 @@ This project focuses on building a **credit risk modeling pipeline** using trans
 
 The project follows industry-aligned best practices, including exploratory data analysis (EDA), feature engineering, proxy target construction, model training, testing, and production deployment.
 
-**Status**: ✅ **COMPLETE** - All tasks implemented and deployed
-
 ---
 
 ## Business Understanding 
@@ -203,8 +201,8 @@ This ensures transparency and reproducibility consistent with production credit 
 credit-risk-model/
 │
 ├── data/
-│   ├── raw/
-│   └── processed/
+│   ├── raw/                  # raw data
+│   └── processed/            # processes data
 │
 ├── notebooks/
 │   └── eda.ipynb

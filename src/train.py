@@ -1,6 +1,8 @@
 import pandas as pd
 import joblib
 from pathlib import Path
+import mlflow
+import mlflow.sklearn
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -62,33 +64,60 @@ def build_pipeline(X: pd.DataFrame) -> Pipeline:
     )
 
 def main():
-    print("Loading data...")
-    df = load_data(DATA_PATH)
+    mlflow.set_experiment("Credit Risk Model")
 
-    print("Preparing features and target...")
-    X = df.drop(columns=[TARGET_COL] + DROP_COLS, errors="ignore")
-    y = df[TARGET_COL]
+    with mlflow.start_run():
+        print("Loading data...")
+        df = load_data(DATA_PATH)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+        print("Preparing features and target...")
+        X = df.drop(columns=[TARGET_COL] + DROP_COLS, errors="ignore")
+        y = df[TARGET_COL]
 
-    print("Building model pipeline...")
-    pipeline = build_pipeline(X_train)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
 
-    print("Training model...")
-    pipeline.fit(X_train, y_train)
+        print("Building model pipeline...")
+        pipeline = build_pipeline(X_train)
 
-    print("Evaluating model...")
-    y_pred = pipeline.predict(X_test)
-    y_proba = pipeline.predict_proba(X_test)[:, 1]
+        # Log parameters
+        mlflow.log_param("model_type", "LogisticRegression")
+        mlflow.log_param("max_iter", 1000)
+        mlflow.log_param("class_weight", "balanced")
+        mlflow.log_param("random_state", 42)
+        mlflow.log_param("test_size", 0.2)
 
-    print(classification_report(y_test, y_pred))
-    print("ROC-AUC:", roc_auc_score(y_test, y_proba))
+        print("Training model...")
+        pipeline.fit(X_train, y_train)
 
-    model_file = MODEL_PATH / "credit_risk_logistic.pkl"
-    joblib.dump(pipeline, model_file)
-    print(f"Model saved to {model_file}")
+        print("Evaluating model...")
+        y_pred = pipeline.predict(X_test)
+        y_proba = pipeline.predict_proba(X_test)[:, 1]
+
+        report = classification_report(y_test, y_pred, output_dict=True)
+        roc_auc = roc_auc_score(y_test, y_proba)
+
+        print(classification_report(y_test, y_pred))
+        print("ROC-AUC:", roc_auc)
+
+        # Log metrics
+        mlflow.log_metric("accuracy", report["accuracy"])
+        mlflow.log_metric("precision", report["weighted avg"]["precision"])
+        mlflow.log_metric("recall", report["weighted avg"]["recall"])
+        mlflow.log_metric("f1_score", report["weighted avg"]["f1-score"])
+        mlflow.log_metric("roc_auc", roc_auc)
+
+        # Log model
+        mlflow.sklearn.log_model(pipeline, "model")
+
+        model_file = MODEL_PATH / "credit_risk_logistic.pkl"
+        joblib.dump(pipeline, model_file)
+        print(f"Model saved to {model_file}")
+
+        # Register the model
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
+        mlflow.register_model(model_uri, "CreditRiskLogisticRegression")
 
 if __name__ == "__main__":
     main()

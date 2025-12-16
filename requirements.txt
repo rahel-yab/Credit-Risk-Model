@@ -4,3 +4,8 @@ scipy
 matplotlib
 seaborn
 pytest
+joblib
+mlflow
+fastapi
+uvicorn
+flake8

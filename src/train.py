@@ -1,6 +1,6 @@
-import os
-import joblib
 import pandas as pd
+import joblib
+from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -9,122 +9,86 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score
 
+DATA_PATH = Path("data/processed/transactions_with_target.csv")
+MODEL_PATH = Path("models")
+MODEL_PATH.mkdir(exist_ok=True)
 
-DATA_PATH = "data/processed/transactions_with_target.csv"
-MODEL_DIR = "models"
-TARGET_COL = "FraudResult"
-
-
-# Columns to drop (identifiers, not features)
+TARGET_COL = "is_high_risk"
 DROP_COLS = [
     "TransactionId",
     "BatchId",
     "AccountId",
     "SubscriptionId",
     "CustomerId",
-    "TransactionStartTime"
+    "TransactionStartTime",
+    "FraudResult",
 ]
 
-
-def load_data(path: str) -> pd.DataFrame:
-    if not os.path.exists(path):
+def load_data(path: Path) -> pd.DataFrame:
+    if not path.exists():
         raise FileNotFoundError(f"Data file not found at {path}")
     return pd.read_csv(path)
 
+def build_pipeline(X: pd.DataFrame) -> Pipeline:
+    numeric_features = X.select_dtypes(include=["int64", "float64"]).columns
+    categorical_features = X.select_dtypes(include=["object", "category"]).columns
 
-def build_preprocessor(df: pd.DataFrame) -> ColumnTransformer:
-    numeric_features = [
-        "Amount",
-        "Value",
-        "PricingStrategy"
-    ]
-
-    categorical_features = [
-        "CurrencyCode",
-        "CountryCode",
-        "ProviderId",
-        "ProductId",
-        "ProductCategory",
-        "ChannelId"
-    ]
-
-    numeric_pipeline = Pipeline(
-        steps=[
-            ("scaler", StandardScaler())
-        ]
+    numeric_transformer = Pipeline(
+        steps=[("scaler", StandardScaler())]
     )
 
-    categorical_pipeline = Pipeline(
-        steps=[
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-        ]
+    categorical_transformer = Pipeline(
+        steps=[("onehot", OneHotEncoder(handle_unknown="ignore"))]
     )
 
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", numeric_pipeline, numeric_features),
-            ("cat", categorical_pipeline, categorical_features)
+            ("num", numeric_transformer, numeric_features),
+            ("cat", categorical_transformer, categorical_features),
         ]
     )
 
-    return preprocessor
+    model = LogisticRegression(
+        max_iter=1000,
+        class_weight="balanced",
+        random_state=42,
+    )
 
-
-def build_model(preprocessor: ColumnTransformer) -> Pipeline:
-    model = Pipeline(
+    return Pipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("classifier", LogisticRegression(
-                max_iter=1000,
-                class_weight="balanced",
-                n_jobs=-1
-            ))
+            ("model", model),
         ]
     )
-    return model
-
 
 def main():
     print("Loading data...")
     df = load_data(DATA_PATH)
 
-    df = df.drop(columns=DROP_COLS, errors="ignore")
-
-    X = df.drop(columns=[TARGET_COL])
+    print("Preparing features and target...")
+    X = df.drop(columns=[TARGET_COL] + DROP_COLS, errors="ignore")
     y = df[TARGET_COL]
 
-    print("Splitting data...")
     X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        stratify=y,
-        random_state=42
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    print("Building model...")
-    preprocessor = build_preprocessor(df)
-    model = build_model(preprocessor)
+    print("Building model pipeline...")
+    pipeline = build_pipeline(X_train)
 
     print("Training model...")
-    model.fit(X_train, y_train)
+    pipeline.fit(X_train, y_train)
 
     print("Evaluating model...")
-    y_pred = model.predict(X_test)
-    y_proba = model.predict_proba(X_test)[:, 1]
+    y_pred = pipeline.predict(X_test)
+    y_proba = pipeline.predict_proba(X_test)[:, 1]
 
-    print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
+    print("ROC-AUC:", roc_auc_score(y_test, y_proba))
 
-    roc_auc = roc_auc_score(y_test, y_proba)
-    print(f"ROC-AUC: {roc_auc:.4f}")
-
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    model_path = os.path.join(MODEL_DIR, "logistic_regression.pkl")
-    joblib.dump(model, model_path)
-
-    print(f"\nModel saved to {model_path}")
-
+    model_file = MODEL_PATH / "credit_risk_logistic.pkl"
+    joblib.dump(pipeline, model_file)
+    print(f"Model saved to {model_file}")
 
 if __name__ == "__main__":
     main()
